@@ -71,31 +71,39 @@ enum GameVisual {
     Gui
 }
 
+fn stdin_get_input(stdin: &io::Stdin) -> String {
+    let mut s = String::new();
+    stdin.read_line(&mut s);
+    s.pop();
+    s
+}
+
+fn print_san_help() {
+    println!("-------------------------------------------------------");
+    println!("Please enter a valid move in SAN format.");
+    println!("Capture: exd5 or Nxc6");
+    println!("If the move results in a check: add + at the end");
+    println!("En passant: add (ep) at the end");
+    println!("Promotion: add =Q at the end, replace Q with the \npiece you want to promote to");
+    println!("To disambiguate between two pieces, e.g. both Rooks \ncould take on c1: Raxc1 to specify the rook on the a file");
+    println!("Checkmate: add ++ at the end");
+    println!("Castle kingside / queenside: O-O / O-O-O");
+    println!("-------------------------------------------------------");
+}
+
 fn get_move_stdin(board: Board) -> ChessMove {
     println!("Enter the next move (in SAN): ");
-    let mut stdin = io::stdin();
-    let mut m = Ok(ChessMove::new(Square::A1, Square::A2, None));
+    let stdin = io::stdin();
+    let mut _move;
     loop {
-        let mut buffer = String::new();
-        stdin.read_line(&mut buffer);
-        buffer.pop();
-        m = ChessMove::from_san(&board, &buffer);
-        if let Ok(_) = m {
-            break;
-        } else {
-            println!("-------------------------------------------------------");
-            println!("Please enter a valid move in SAN format.");
-            println!("Capture: exd5 or Nxc6");
-            println!("If the move results in a check: add + at the end");
-            println!("En passant: add (ep) at the end");
-            println!("Promotion: add =Q at the end, replace Q with the \npiece you want to promote to");
-            println!("To disambiguate between two pieces, e.g. both Rooks \ncould take on c1: Raxc1 to specify the rook on the a file");
-            println!("Checkmate: add ++ at the end");
-            println!("Castle kingside / queenside: O-O / O-O-O");
-            println!("-------------------------------------------------------");
+        let input = stdin_get_input(&stdin);
+        _move = ChessMove::from_san(&board, &input);
+        match _move {
+            Ok(_) => break,
+            Err(_) => print_san_help(),
         }
     }  
-    m.expect("Please enter a valid move in SAN format!")
+    _move.expect("Please enter a valid move in SAN format!")
 }
 
 struct Player {
@@ -161,13 +169,6 @@ impl ChessGame {
         }
         
     }
-}
-
-fn stdin_get_input(stdin: &io::Stdin) -> String {
-    let mut s = String::new();
-    stdin.read_line(&mut s);
-    s.pop();
-    s
 }
 
 fn stdin_get_player(stdin: &io::Stdin) -> std::result::Result<Player, ()> {
