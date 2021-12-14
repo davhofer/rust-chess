@@ -71,31 +71,39 @@ enum GameVisual {
     Gui
 }
 
+fn stdin_get_input(stdin: &io::Stdin) -> String {
+    let mut s = String::new();
+    stdin.read_line(&mut s);
+    s.pop();
+    s
+}
+
+fn print_san_help() {
+    println!("-------------------------------------------------------");
+    println!("Please enter a valid move in SAN format.");
+    println!("Capture: exd5 or Nxc6");
+    println!("If the move results in a check: add + at the end");
+    println!("En passant: add (ep) at the end");
+    println!("Promotion: add =Q at the end, replace Q with the \npiece you want to promote to");
+    println!("To disambiguate between two pieces, e.g. both Rooks \ncould take on c1: Raxc1 to specify the rook on the a file");
+    println!("Checkmate: add ++ at the end");
+    println!("Castle kingside / queenside: O-O / O-O-O");
+    println!("-------------------------------------------------------");
+}
+
 fn get_move_stdin(board: Board) -> ChessMove {
     println!("Enter the next move (in SAN): ");
-    let mut stdin = io::stdin();
-    let mut m = Ok(ChessMove::new(Square::A1, Square::A2, None));
+    let stdin = io::stdin();
+    let mut _move;
     loop {
-        let mut buffer = String::new();
-        stdin.read_line(&mut buffer);
-        buffer.pop();
-        m = ChessMove::from_san(&board, &buffer);
-        if let Ok(_) = m {
-            break;
-        } else {
-            println!("-------------------------------------------------------");
-            println!("Please enter a valid move in SAN format.");
-            println!("Capture: exd5 or Nxc6");
-            println!("If the move results in a check: add + at the end");
-            println!("En passant: add (ep) at the end");
-            println!("Promotion: add =Q at the end, replace Q with the \npiece you want to promote to");
-            println!("To disambiguate between two pieces, e.g. both Rooks \ncould take on c1: Raxc1 to specify the rook on the a file");
-            println!("Checkmate: add ++ at the end");
-            println!("Castle kingside / queenside: O-O / O-O-O");
-            println!("-------------------------------------------------------");
+        let input = stdin_get_input(&stdin);
+        _move = ChessMove::from_san(&board, &input);
+        match _move {
+            Ok(_) => break,
+            Err(_) => print_san_help(),
         }
     }  
-    m.expect("Please enter a valid move in SAN format!")
+    _move.expect("Please enter a valid move in SAN format!")
 }
 
 struct Player {
@@ -163,66 +171,63 @@ impl ChessGame {
     }
 }
 
+fn stdin_get_player(stdin: &io::Stdin) -> std::result::Result<Player, ()> {
+    match stdin_get_input(&stdin).as_str() {
+        "human" => Ok(Player::new_human(Color::White)),
+        "bot" => Ok(bot_setup(Color::White)),
+        _ => Err(())
+    }
+}
+
 pub fn command_line_setup() -> ChessGame {
-    let mut buffer1 = String::new();
-    let mut buffer2 = String::new();
     let mut stdin = io::stdin();
 
-    println!("Select player 1: human or bot.");
     let mut player1 = Player::new_human(Color::White);
     let mut player2 = Player::new_human(Color::Black);
 
-    stdin.read_line(&mut buffer1);
-    buffer1.pop();
-    if buffer1 == "human" {
-        player1 = Player::new_human(Color::White);
-    } else if buffer1 == "bot" {
-        player1 = bot_setup(Color::White);
-    } else {
-        println!("Please select either human or bot!")
-        // TODO: handle the case of bad user input
+    println!("Select player 1: human or bot.");
+
+    match stdin_get_player(&stdin) {
+        Ok(player) => {
+            player1 = player;
+        },
+        Err(_) => {
+            println!("Invalid input should be 'human' or 'bot'.");
+            std::process::exit(1);
+        }
     }
+
     println!();
     println!("Select player 2: human or bot.");
 
-    stdin.read_line(&mut buffer2);
-    buffer2.pop();
-    if buffer2 == "human" {
-        player2 = Player::new_human(Color::Black);
-    } else if buffer2 == "bot" {
-        player2 = bot_setup(Color::Black);
-    } else {
-        println!("Please select either human or bot!")
+    match stdin_get_player(&stdin) {
+        Ok(player) => {
+            player2 = player;
+        }
+        Err(_) => {
+            println!("Invalid input should be 'human' or 'bot'.");
+            std::process::exit(1);
+        }
     }
 
     println!("Do yo want to play in the commandline or gui?");
 
-    let mut buf = String::new();
-    stdin.read_line(&mut buf);
-    buf.pop();
-    if buf == "commandline" {
-        ChessGame {
+    match stdin_get_input(&stdin).as_str() {
+        "commandline" => ChessGame {
             player1,
             player2,
             game: Game::new(),
             visual: GameVisual::CommandLine,
-        }
-    } else if buf == "gui" {
-        ChessGame {
+        },
+        "gui" => ChessGame {
             player1,
             player2,
             game: Game::new(),
             visual: GameVisual::Gui,
-            
-        }
-    } else {
-        println!("Please enter either commandline or gui.");
-        ChessGame {
-            player1: Player::new_human(Color::White),
-            player2: Player::new_human(Color::Black),
-            game: Game::new(),
-            visual: GameVisual::Gui,
+        },
+        _ => {
+            println!("Invalid input should be 'commandline' or 'gui'.");
+            std::process::exit(1);
         }
     }
- 
 }
