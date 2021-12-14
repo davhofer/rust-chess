@@ -1,5 +1,7 @@
 use chess_gamesetup as setup;
-fn main() {
-    let mut chessgame = setup::command_line_setup();
-    chessgame.start();
+use ggez::GameResult;
+
+fn main() -> GameResult {
+    let (p1, p2, game, visual) = setup::command_line_setup();
+    setup::start_game(p1, p2, game, visual)
 }

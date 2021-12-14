@@ -10,3 +10,4 @@ ggez = "0.7"
 glam = "0.20"
 oorandom = "11.1"
 chess = "3.2"
+chess-ai = { path = "../chess-ai" }

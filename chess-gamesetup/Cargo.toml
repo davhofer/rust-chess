@@ -8,3 +8,5 @@ edition = "2021"
 [dependencies]
 chess = "3.2.0"
 chess-ai = { path = "../chess-ai" }
+chess-gui = { path = "../chess-gui" }
+ggez = "0.7"

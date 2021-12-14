@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 chess-gamesetup = { path = "../chess-gamesetup" }
+ggez = "0.7"

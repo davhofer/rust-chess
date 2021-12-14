@@ -7,13 +7,14 @@ mod tests {
     }
 }
 
-
 use chess::{
     self, BitBoard, Board, BoardStatus, ChessMove, File, Game, MoveGen, Piece, Rank, Square,
 };
 use std::cmp;
 use std::str::FromStr;
 use std::usize;
+
+use chess_ai::Bot;
 
 const STARTING_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -53,8 +54,8 @@ pub struct GameState {
     field: (i16, i16),
     game: Game,
     current_legal_moves: Vec<ChessMove>,
-    player_color: u8,
-    bot: Bot,
+    playable: [bool; 2],
+    bot_refs: [Bot; 2],
 }
 fn canvas_coord_to_canvas_square(x: i16, y: i16, pov: u8) -> (i16, i16) {
     let file = x / (WINDWOW_SIZE as i16 / 8);
@@ -80,34 +81,30 @@ fn movegen(board: &Board, start_square: Square, color_to_move: chess::Color) -> 
 }
 
 impl GameState {
-    pub fn new(ctx: &mut Context, player_color: u8) -> GameResult<GameState> {
-        //filesystem::print_all(ctx);
-
-        let rng = oorandom::Rand32::new(271828);
-        let game: Game = Game::from_str(STARTING_FEN).expect("Valid FEN");
-        let bot_color = if player_color == 1 {
-            chess::Color::Black
-        } else {
-            chess::Color::White
-        };
-
+    pub fn new(game: Game, playable: [bool; 2], bot_refs: [Bot; 2]) -> GameState {
+        let pov = if !playable[0] && playable[1] { 2 } else { 1 };
         let s = GameState {
-            pov: player_color,
+            pov,
             flip_timeout: 0,
             field_selected: false,
             field: (-1, -1),
             game,
             current_legal_moves: movegen_empty(),
-            player_color,
-            bot: Bot::new(bot_color),
+            playable,
+            bot_refs,
         };
 
-        Ok(s)
+        s
     }
 }
 
 impl event::EventHandler<ggez::GameError> for GameState {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
+        let current_player_as_idx = if self.game.side_to_move() == chess::Color::White {
+            0
+        } else {
+            1
+        } as usize;
         if self.flip_timeout == 0 && keyboard::is_key_pressed(ctx, event::KeyCode::F) {
             self.pov = (self.pov % 2) + 1;
             self.flip_timeout = 10;
@@ -115,7 +112,7 @@ impl event::EventHandler<ggez::GameError> for GameState {
             self.field_selected = false;
         }
         if mouse::button_pressed(ctx, mouse::MouseButton::Left) {
-            if self.game.side_to_move() != self.bot.color {
+            if self.playable[current_player_as_idx] {
                 let canvas_square_clicked = canvas_coord_to_canvas_square(
                     mouse::position(ctx).x as i16,
                     mouse::position(ctx).y as i16,
@@ -178,8 +175,9 @@ impl event::EventHandler<ggez::GameError> for GameState {
                     }
                 }
             } else {
-                self.game
-                    .make_move(self.bot.get_move(self.game.current_position()));
+                self.game.make_move(
+                    self.bot_refs[current_player_as_idx].get_move(self.game.current_position()),
+                );
             }
             if mouse::button_pressed(ctx, mouse::MouseButton::Right) {
                 self.field_selected = false;
@@ -333,10 +331,5 @@ pub fn run(gamestate: GameState) -> GameResult {
         });
     let (mut ctx, event_loop) = cb.build()?;
 
-    let player_color = 2;
-
-    //let state = GameState::new(&mut ctx, player_color)?;
     event::run(ctx, event_loop, gamestate)
 }
-
-
