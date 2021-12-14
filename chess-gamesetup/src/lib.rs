@@ -229,10 +229,10 @@ fn bot_setup(color: Color) -> Player {
 }
 
 // configure a player
-fn stdin_get_player(stdin: &io::Stdin) -> std::result::Result<Player, ()> {
+fn stdin_get_player(stdin: &io::Stdin, color: Color) -> std::result::Result<Player, ()> {
     match stdin_get_input(&stdin).as_str() {
-        "human" => Ok(Player::new_human(Color::White)),
-        "bot" => Ok(bot_setup(Color::White)),
+        "human" => Ok(Player::new_human(color)),
+        "bot" => Ok(bot_setup(color)),
         _ => Err(()),
     }
 }
@@ -257,7 +257,7 @@ pub fn command_line_setup() -> (Player, Player, Game, GameVisual) {
     // player 1
     println!("Select player 1: human or bot.");
 
-    match stdin_get_player(&stdin) {
+    match stdin_get_player(&stdin, Color::White) {
         Ok(player) => {
             player1 = player;
         }
@@ -272,7 +272,7 @@ pub fn command_line_setup() -> (Player, Player, Game, GameVisual) {
     // player 2
     println!("Select player 2: human or bot.");
 
-    match stdin_get_player(&stdin) {
+    match stdin_get_player(&stdin, Color::Black) {
         Ok(player) => {
             player2 = player;
         }

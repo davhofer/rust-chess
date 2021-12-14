@@ -87,6 +87,7 @@ impl Bot {
         }
 
         let child_nodes = MoveGen::new_legal(&board);
+        // order the moves
         let mut score = i32::MIN;
         let mut best_move = None;
         for m in child_nodes {
@@ -134,6 +135,7 @@ fn evaluate(board: &Board) -> i32 {
             return -INFTY;
         }
     }
+
     // different evaluation based on board state
     // specifically endgame or heuristics when no pieces can be captures (bring own pieces closer to enemy king)
     // sebastian lague ForceKingToCornerEndgameEval
@@ -245,3 +247,55 @@ fn evaluate(board: &Board) -> i32 {
 //     println!("{}", e);
 //     e
 // }
+
+fn eval_piecescore_simple(board: &Board) -> i32 {
+    let pawn = 10;
+    let bishop = 30;
+    let knight = 30;
+    let rook = 50;
+    let queen = 90;
+
+    let no_pawns_penalty = -5;
+    let bishoppair = 5;
+    let knightpair = -1;
+    let rookpair = -1;
+    let white_pieces = board.color_combined(chess::Color::White);
+    let black_pieces = board.color_combined(chess::Color::Black);
+    let mut mat_white = 0;
+    let mut mat_black = 0;
+
+    //     Piece::Pawn
+    let pawns = board.pieces(Piece::Pawn);
+    let pawns_w = (pawns & white_pieces).popcnt() as i32;
+    let pawns_b = (pawns & black_pieces).popcnt() as i32;
+    mat_white += pawns_w * pawn + if pawns_w == 0 { no_pawns_penalty } else { 0 };
+    mat_black += pawns_b * pawn + if pawns_b == 0 { no_pawns_penalty } else { 0 };
+    //     Piece::Knight
+    let knights = board.pieces(Piece::Knight);
+    let knight_w = (knights & white_pieces).popcnt() as i32;
+    let knight_b = (knights & black_pieces).popcnt() as i32;
+    mat_white += knight_w * knight + if knight_w == 2 { knightpair } else { 0 };
+    mat_black += knight_b * knight + if knight_b == 2 { knightpair } else { 0 };
+    //     Piece::Bishop
+    let bishops = board.pieces(Piece::Bishop);
+    let bishops_w = (bishops & white_pieces).popcnt() as i32;
+    let bishops_b = (bishops & black_pieces).popcnt() as i32;
+    // bonus for bishoppair
+    mat_white += bishops_w * bishop + if bishops_w == 2 { bishoppair } else { 0 };
+    mat_black += bishops_b * bishop + if bishops_b == 2 { bishoppair } else { 0 };
+    //     Piece::Rook
+    let rooks = board.pieces(Piece::Rook);
+    let rooks_w = (rooks & white_pieces).popcnt() as i32;
+    let rooks_b = (rooks & black_pieces).popcnt() as i32;
+    // malus for rook pair (redundancy)
+    mat_white += rooks_w * rook + if rooks_w == 2 { rookpair } else { 0 };
+    mat_black += rooks_b * rook + if rooks_b == 2 { rookpair } else { 0 };
+    //
+    //     Piece::Queen
+    let queens = board.pieces(Piece::Queen);
+    mat_white += (queens & white_pieces).popcnt() as i32 * queen;
+    mat_black += (queens & black_pieces).popcnt() as i32 * queen;
+    let mat_score = mat_white - mat_black;
+
+    mat_white - mat_black
+}
