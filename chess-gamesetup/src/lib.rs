@@ -7,12 +7,14 @@ mod tests {
     }
 }
 
+// imports
 use chess::{self, Board, ChessMove, Color, Game, Piece, Square};
 use chess_ai::Bot;
 use chess_gui::{self, GameState};
 use ggez::GameResult;
 use std::io;
 
+// chessboard squares
 const SQUARES: [[Square; 8]; 8] = [
     [
         Square::A8,
@@ -96,14 +98,14 @@ const SQUARES: [[Square; 8]; 8] = [
     ],
 ];
 
+// display board in commandline
 fn print_board(board: &Board) {
     let mut rank = 8;
     println!("  -------------------------");
     for row in SQUARES {
-        let r = rank.to_string();
-        let mut s = String::from(r);
-        s.push_str(" |");
+        let mut s = String::from(rank.to_string());
         rank -= 1;
+        s.push_str(" |");
         for square in row {
             let mut p = match board.piece_on(square) {
                 None => "  ",
@@ -142,8 +144,9 @@ pub enum GameVisual {
     Gui,
 }
 
+// get a string from stdin
 fn stdin_get_input(stdin: &io::Stdin) -> String {
-    let mut stdin = io::stdin();
+    let stdin = io::stdin();
     let mut s = String::new();
     stdin.read_line(&mut s);
     trim_newline(&mut s);
@@ -163,6 +166,7 @@ fn print_san_help() {
     println!("-------------------------------------------------------");
 }
 
+// get a move from the player through stdin
 fn get_move_stdin(board: Board) -> ChessMove {
     println!("Enter the next move (in SAN): ");
     let mut stdin = io::stdin();
@@ -211,44 +215,20 @@ impl Player {
 }
 
 fn bot_setup(color: Color) -> Player {
-    Player::new_bot(color, 3)
-}
-
-pub fn start_game(
-    player1: Player,
-    player2: Player,
-    mut game: Game,
-    visual: GameVisual,
-) -> GameResult {
-    if visual == GameVisual::CommandLine {
-        while game.result().is_none() {
-            print_board(&game.current_position());
-            if game.side_to_move() == Color::White {
-                game.make_move(player1.get_move(game.current_position()));
-            } else {
-                game.make_move(player2.get_move(game.current_position()));
-            }
-        }
-        print_board(&game.current_position());
-        println!("GAME OVER");
-        Ok(())
+    // TODO: allow commandline configuration of bot
+    println!("--- BOT setup ---");
+    println!("Search depth: ");
+    let stdin = io::stdin();
+    let depth: u8 = if let Ok(d) = stdin_get_input(&stdin).parse() {
+        d
     } else {
-        println!("Starting gui...");
-        let (playable1, bot_ref1) = if player1.player_type == PlayerType::Human {
-            (true, Bot::new(Color::White, 0))
-        } else {
-            (false, player1.bot_ref)
-        };
-        let (playable2, bot_ref2) = if player2.player_type == PlayerType::Human {
-            (true, Bot::new(Color::White, 0))
-        } else {
-            (false, player2.bot_ref)
-        };
-        let gui_gamestate = GameState::new(game, [playable1, playable2], [bot_ref1, bot_ref2]);
-        chess_gui::run(gui_gamestate)
-    }
+        3
+    };
+    println!("-----------------");
+    Player::new_bot(color, depth)
 }
 
+// configure a player
 fn stdin_get_player(stdin: &io::Stdin) -> std::result::Result<Player, ()> {
     match stdin_get_input(&stdin).as_str() {
         "human" => Ok(Player::new_human(Color::White)),
@@ -257,6 +237,7 @@ fn stdin_get_player(stdin: &io::Stdin) -> std::result::Result<Player, ()> {
     }
 }
 
+// remove trailing newline from string
 fn trim_newline(s: &mut String) {
     if s.ends_with('\n') {
         s.pop();
@@ -265,12 +246,15 @@ fn trim_newline(s: &mut String) {
         }
     }
 }
+
+// game setup through commandline
 pub fn command_line_setup() -> (Player, Player, Game, GameVisual) {
     let mut stdin = io::stdin();
 
     let mut player1 = Player::new_human(Color::White);
     let mut player2 = Player::new_human(Color::Black);
 
+    // player 1
     println!("Select player 1: human or bot.");
 
     match stdin_get_player(&stdin) {
@@ -284,6 +268,8 @@ pub fn command_line_setup() -> (Player, Player, Game, GameVisual) {
     }
 
     println!();
+
+    // player 2
     println!("Select player 2: human or bot.");
 
     match stdin_get_player(&stdin) {
@@ -296,6 +282,7 @@ pub fn command_line_setup() -> (Player, Player, Game, GameVisual) {
         }
     }
 
+    // board position
     println!("Do you want to play from the default starting position or a specific FEN?");
     let mut buf = String::new();
     stdin.read_line(&mut buf);
@@ -308,6 +295,8 @@ pub fn command_line_setup() -> (Player, Player, Game, GameVisual) {
         fen.pop();
         game = Game::new_with_board(Board::from_fen(fen).expect("Valid FEN"));
     }
+
+    // visualization
     println!("Do yo want to play in the commandline or gui?");
 
     match stdin_get_input(&stdin).as_str() {
@@ -317,5 +306,51 @@ pub fn command_line_setup() -> (Player, Player, Game, GameVisual) {
             println!("Invalid input should be 'commandline' or 'gui'.");
             std::process::exit(1);
         }
+    }
+}
+
+// start the configured game
+pub fn start_game(
+    player1: Player,
+    player2: Player,
+    mut game: Game,
+    visual: GameVisual,
+) -> GameResult {
+    if visual == GameVisual::CommandLine {
+        // game loop in commandline
+        while game.result().is_none() {
+            print_board(&game.current_position());
+            if game.side_to_move() == Color::White {
+                game.make_move(player1.get_move(game.current_position()));
+            } else {
+                game.make_move(player2.get_move(game.current_position()));
+            }
+        }
+        print_board(&game.current_position());
+        match game.result() {
+            Some(chess::GameResult::WhiteCheckmates) => println!("Checkmate! Winner: White"),
+            Some(chess::GameResult::BlackCheckmates) => println!("Checkmate! Winner: Black"),
+            Some(chess::GameResult::Stalemate) => println!("Stalemate!"),
+            Some(chess::GameResult::DrawAccepted) => println!("Draw!"),
+            _ => println!("GAME OVER"),
+        };
+        Ok(())
+    } else {
+        // setup for gui gamestate
+        let (playable1, bot_ref1) = if player1.player_type == PlayerType::Human {
+            (true, Bot::new(Color::White, 0))
+        } else {
+            (false, player1.bot_ref)
+        };
+        let (playable2, bot_ref2) = if player2.player_type == PlayerType::Human {
+            (true, Bot::new(Color::White, 0))
+        } else {
+            (false, player2.bot_ref)
+        };
+
+        let gui_gamestate = GameState::new(game, [playable1, playable2], [bot_ref1, bot_ref2]);
+        println!("Starting gui...");
+        // run gui gameloop
+        chess_gui::run(gui_gamestate)
     }
 }
