@@ -195,6 +195,18 @@ pub fn command_line_setup() -> ChessGame {
         println!("Please select either human or bot!")
     }
 
+    println!("Do you want to play from the default starting position or a specific FEN?");
+    let mut buf = String::new();
+    stdin.read_line(&mut buf);
+    buf.pop();
+    let mut game = Game::new();
+    if buf != "default" {
+        println!("Enter FEN:");
+        let mut fen = String::new();
+        stdin.read_line(&mut fen);
+        fen.pop();
+        game = Game::new_with_board(Board::from_fen(fen).expect("Valid FEN"));
+    } 
     println!("Do yo want to play in the commandline or gui?");
 
     let mut buf = String::new();
@@ -204,14 +216,14 @@ pub fn command_line_setup() -> ChessGame {
         ChessGame {
             player1,
             player2,
-            game: Game::new(),
+            game,
             visual: GameVisual::CommandLine,
         }
     } else if buf == "gui" {
         ChessGame {
             player1,
             player2,
-            game: Game::new(),
+            game,
             visual: GameVisual::Gui,
             
         }
