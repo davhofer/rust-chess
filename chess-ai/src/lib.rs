@@ -1,5 +1,6 @@
 use chess::{
     self, BitBoard, Board, BoardStatus, ChessMove, Color, File, Game, MoveGen, Piece, Rank, Square,
+    EMPTY,
 };
 use std::cmp;
 
@@ -64,7 +65,12 @@ impl Bot {
         for m in MoveGen::new_legal(&board) {
             let new_board = board.make_move_new(m);
             let (child_score, child_move) = self.negamax(new_board, depth - 1, -player_obj);
-            let child_score = -child_score;
+            // if a move leads to checkmate, prefer the shortest sequence
+            let child_score = if child_score >= INFTY - 1 - depth as i32 {
+                -(child_score - 1)
+            } else {
+                -child_score
+            };
             if child_score > score {
                 score = child_score;
                 best_move = Some(m);
@@ -86,15 +92,55 @@ impl Bot {
             return (player_obj * self.eval(&board), None);
         }
 
-        let child_nodes = MoveGen::new_legal(&board);
-        // order the moves
+        let mut child_nodes = MoveGen::new_legal(&board);
         let mut score = i32::MIN;
         let mut best_move = None;
-        for m in child_nodes {
-            let new_board = board.make_move_new(m);
-            let (child_score, child_move) =
-                self.negamax_ab(new_board, depth - 1, -beta, -alpha, -player_obj);
-            let child_score = -child_score;
+
+        // captures moves
+        let targets = board.color_combined(!board.side_to_move());
+        child_nodes.set_iterator_mask(*targets);
+
+        for m in &mut child_nodes {
+            let (child_score, child_move) = self.negamax_ab(
+                board.make_move_new(m),
+                depth - 1,
+                -beta,
+                -alpha,
+                -player_obj,
+            );
+            // if a move leads to checkmate, prefer the shortest sequence
+            let child_score = if child_score >= INFTY - 1 - depth as i32 {
+                -(child_score - 1)
+            } else {
+                -child_score
+            };
+            if child_score > score {
+                score = child_score;
+                best_move = Some(m);
+            }
+
+            let alpha = cmp::max(alpha, child_score);
+            if alpha > beta {
+                break;
+            }
+        }
+
+        // all the other moves
+        child_nodes.set_iterator_mask(!EMPTY);
+        for m in &mut child_nodes {
+            let (child_score, child_move) = self.negamax_ab(
+                board.make_move_new(m),
+                depth - 1,
+                -beta,
+                -alpha,
+                -player_obj,
+            );
+            // if a move leads to checkmate, prefer the shortest sequence
+            let child_score = if child_score >= INFTY - 1 - depth as i32 {
+                -(child_score - 1)
+            } else {
+                -child_score
+            };
             if child_score > score {
                 score = child_score;
                 best_move = Some(m);
@@ -238,15 +284,15 @@ fn evaluate(board: &Board) -> i32 {
     let num_moves_current_player = movegen.len();
     let mobility = 0;
 
-    mat_score + mobility // + endgame_force_king
+    mat_score + mobility + endgame_force_king
 }
 
-// fn eval_from_fen(fen: String) -> i32 {
-//     let b = Board::from_fen(fen).expect("Valid FEN");
-//     let e = evaluate(&b);
-//     println!("{}", e);
-//     e
-// }
+fn eval_from_fen(fen: String) -> i32 {
+    let b = Board::from_fen(fen).expect("Valid FEN");
+    let e = evaluate(&b);
+    println!("{}", e);
+    e
+}
 
 fn eval_piecescore_simple(board: &Board) -> i32 {
     let pawn = 10;
