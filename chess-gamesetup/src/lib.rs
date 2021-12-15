@@ -13,6 +13,7 @@ use chess_ai::Bot;
 use chess_gui::{self, GameState};
 use ggez::GameResult;
 use std::io;
+use std::str::FromStr;
 
 // chessboard squares
 const SQUARES: [[Square; 8]; 8] = [
@@ -107,7 +108,7 @@ fn print_board(board: &Board) {
         rank -= 1;
         s.push_str(" |");
         for square in row {
-            let mut p = match board.piece_on(square) {
+            let p = match board.piece_on(square) {
                 None => "  ",
                 Some(piece) => match piece {
                     Piece::Pawn => "p ",
@@ -148,7 +149,7 @@ pub enum GameVisual {
 fn stdin_get_input() -> String {
     let stdin = io::stdin();
     let mut s = String::new();
-    stdin.read_line(&mut s);
+    let _ = stdin.read_line(&mut s);
     trim_newline(&mut s);
     s
 }
@@ -277,7 +278,7 @@ pub fn command_line_setup() -> (Player, Player, Game, GameVisual) {
         _ => {
             println!("Enter FEN:");
             let fen = stdin_get_input();
-            let board = Board::from_fen(fen).expect("Valid FEN");
+            let board = Board::from_str(&fen).expect("Valid FEN");
             Game::new_with_board(board)
         }
     };
