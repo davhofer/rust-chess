@@ -13,6 +13,7 @@ use chess_ai::Bot;
 use chess_gui::{self, GameState};
 use ggez::GameResult;
 use std::io;
+use std::str::FromStr;
 
 // chessboard squares
 const SQUARES: [[Square; 8]; 8] = [
@@ -107,7 +108,7 @@ fn print_board(board: &Board) {
         rank -= 1;
         s.push_str(" |");
         for square in row {
-            let mut p = match board.piece_on(square) {
+            let p = match board.piece_on(square) {
                 None => "  ",
                 Some(piece) => match piece {
                     Piece::Pawn => "p ",
@@ -145,10 +146,10 @@ pub enum GameVisual {
 }
 
 // get a string from stdin
-fn stdin_get_input(stdin: &io::Stdin) -> String {
+fn stdin_get_input() -> String {
     let stdin = io::stdin();
     let mut s = String::new();
-    stdin.read_line(&mut s);
+    let _ = stdin.read_line(&mut s);
     trim_newline(&mut s);
     s
 }
@@ -169,10 +170,9 @@ fn print_san_help() {
 // get a move from the player through stdin
 fn get_move_stdin(board: Board) -> ChessMove {
     println!("Enter the next move (in SAN): ");
-    let mut stdin = io::stdin();
     let mut _move;
     loop {
-        let input = stdin_get_input(&stdin);
+        let input = stdin_get_input();
         _move = ChessMove::from_san(&board, &input);
         match _move {
             Ok(_) => break,
@@ -218,8 +218,7 @@ fn bot_setup(color: Color) -> Player {
     // TODO: allow commandline configuration of bot
     println!("--- BOT setup ---");
     println!("Search depth: ");
-    let stdin = io::stdin();
-    let depth: u8 = if let Ok(d) = stdin_get_input(&stdin).parse() {
+    let depth: u8 = if let Ok(d) = stdin_get_input().parse() {
         d
     } else {
         3
@@ -236,8 +235,8 @@ fn bot_setup(color: Color) -> Player {
 }
 
 // configure a player
-fn stdin_get_player(stdin: &io::Stdin, color: Color) -> std::result::Result<Player, ()> {
-    match stdin_get_input(&stdin).as_str() {
+fn stdin_get_player(color: Color) -> std::result::Result<Player, ()> {
+    match stdin_get_input().as_str() {
         "human" => Ok(Player::new_human(color)),
         "bot" => Ok(bot_setup(color)),
         _ => Err(()),
@@ -256,57 +255,45 @@ fn trim_newline(s: &mut String) {
 
 // game setup through commandline
 pub fn command_line_setup() -> (Player, Player, Game, GameVisual) {
-    let mut stdin = io::stdin();
-
-    let mut player1 = Player::new_human(Color::White);
-    let mut player2 = Player::new_human(Color::Black);
-
     // player 1
     println!("Select player 1: human or bot.");
 
-    match stdin_get_player(&stdin, Color::White) {
-        Ok(player) => {
-            player1 = player;
-        }
+    let player1 = match stdin_get_player(Color::White) {
+        Ok(player) => player,
         Err(_) => {
             println!("Invalid input should be 'human' or 'bot'.");
             std::process::exit(1);
         }
-    }
-
-    println!();
+    };
 
     // player 2
     println!("Select player 2: human or bot.");
 
-    match stdin_get_player(&stdin, Color::Black) {
-        Ok(player) => {
-            player2 = player;
-        }
+    let player2 = match stdin_get_player(Color::Black) {
+        Ok(player) => player,
         Err(_) => {
             println!("Invalid input should be 'human' or 'bot'.");
             std::process::exit(1);
         }
-    }
+    };
 
     // board position
     println!("Do you want to play from the default starting position or a specific FEN?");
-    let mut buf = String::new();
-    stdin.read_line(&mut buf);
-    trim_newline(&mut buf);
-    let mut game = Game::new();
-    if buf != "default" {
-        println!("Enter FEN:");
-        let mut fen = String::new();
-        stdin.read_line(&mut fen);
-        fen.pop();
-        game = Game::new_with_board(Board::from_fen(fen).expect("Valid FEN"));
-    }
+
+    let game = match stdin_get_input().as_str() {
+        "default" => Game::new(),
+        _ => {
+            println!("Enter FEN:");
+            let fen = stdin_get_input();
+            let board = Board::from_str(&fen).expect("Valid FEN");
+            Game::new_with_board(board)
+        }
+    };
 
     // visualization
     println!("Do yo want to play in the commandline or gui?");
 
-    match stdin_get_input(&stdin).as_str() {
+    match stdin_get_input().as_str() {
         "commandline" => (player1, player2, game, GameVisual::CommandLine),
         "gui" => (player1, player2, game, GameVisual::Gui),
         _ => {
