@@ -193,15 +193,15 @@ impl Player {
         Player {
             player_type: PlayerType::Human,
             color: color,
-            bot_ref: Bot::new(color, 0),
+            bot_ref: Bot::new(color, 0, false),
         }
     }
 
-    fn new_bot(color: Color, depth: u8) -> Player {
+    fn new_bot(color: Color, depth: u8, debug: bool) -> Player {
         Player {
             player_type: PlayerType::Bot,
             color: color,
-            bot_ref: Bot::new(color, depth),
+            bot_ref: Bot::new(color, depth, debug),
         }
     }
 
@@ -224,8 +224,15 @@ fn bot_setup(color: Color) -> Player {
     } else {
         3
     };
+
+    println!("Debug? y/n ");
+    let mut debug = false;
+    if stdin_get_input(&stdin) == "y" {
+        debug = true;
+    }
+
     println!("-----------------");
-    Player::new_bot(color, depth)
+    Player::new_bot(color, depth, debug)
 }
 
 // configure a player
@@ -338,12 +345,12 @@ pub fn start_game(
     } else {
         // setup for gui gamestate
         let (playable1, bot_ref1) = if player1.player_type == PlayerType::Human {
-            (true, Bot::new(Color::White, 0))
+            (true, Bot::new(Color::White, 0, false))
         } else {
             (false, player1.bot_ref)
         };
         let (playable2, bot_ref2) = if player2.player_type == PlayerType::Human {
-            (true, Bot::new(Color::White, 0))
+            (true, Bot::new(Color::White, 0, false))
         } else {
             (false, player2.bot_ref)
         };

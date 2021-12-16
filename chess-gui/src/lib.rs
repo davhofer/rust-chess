@@ -102,6 +102,9 @@ impl GameState {
 impl event::EventHandler<ggez::GameError> for GameState {
     // gets called on update events
     fn update(&mut self, ctx: &mut Context) -> GameResult {
+        if !self.game.result().is_none() {
+            return Ok(());
+        }
         // variable to index into playable and bot_ref arrays
         let current_player_as_idx = if self.game.side_to_move() == chess::Color::White {
             0
