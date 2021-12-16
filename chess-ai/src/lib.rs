@@ -13,9 +13,7 @@ mod tests {
     }
 }
 
-const INFTY: i32 = i32::MAX - 2;
-
-const GAMEPHASE_INC: [u8; 12] = [0, 0, 1, 1, 1, 1, 2, 2, 4, 4, 0, 0];
+const INFINITY: i32 = i32::MAX - 2;
 
 const _MG_PAWN_TABLE: [i32; 64] = [
     0, 0, 0, 0, 0, 0, 0, 0, 98, 134, 61, 95, 68, 126, 34, -11, -6, 7, 26, 31, 65, 56, 25, -20, -14,
@@ -124,12 +122,15 @@ impl Bot {
     pub fn get_move(&self, board: Board) -> ChessMove {
         // features:
         // negamax + alpha beta
+        // TODO:
         // iterative deepening
         // transposition tables
 
         println!("Searching for move...");
         let (pos_score, best_move, positions) =
-            self.negamax(&board, self.depth, -INFTY, INFTY, self.objective); //self.negamax(board, depth, self.objective);
+            self.negamax(&board, self.depth, -INFINITY, INFINITY, self.objective);
+
+        // some output
         println!();
         println!(
             "Score for current position (white's perspective): {}",
@@ -144,52 +145,7 @@ impl Bot {
         }
     }
 
-    fn negamax_no_moveorder(
-        &self,
-        board: Board,
-        depth: u8,
-        alpha: i32,
-        beta: i32,
-        player_obj: i32,
-    ) -> (i32, Option<ChessMove>, u32) {
-        if depth == 0 || board.status() != BoardStatus::Ongoing {
-            // instead of returning score, start quiscence search (same search function, but only look at capture moves and keep going until no captures are left)
-            return (player_obj * self.eval(&board), None, 1);
-        }
-        let mut alpha = alpha;
-
-        let mut child_nodes = MoveGen::new_legal(&board);
-        let mut score = i32::MIN;
-        let mut best_move = None;
-        let mut count = 0;
-
-        for m in &mut child_nodes {
-            let (child_score, child_move, c) = self.negamax_no_moveorder(
-                board.make_move_new(m),
-                depth - 1,
-                -beta,
-                -alpha,
-                -player_obj,
-            );
-            count += c;
-            // if a move leads to checkmate, prefer the shortest sequence
-            let child_score = if child_score >= INFTY - 1 - self.depth as i32 {
-                -(child_score - 1)
-            } else {
-                -child_score
-            };
-            if child_score > score {
-                score = child_score;
-                best_move = Some(m);
-            }
-            alpha = cmp::max(alpha, child_score);
-            if alpha >= beta {
-                break;
-            }
-        }
-
-        (score, best_move, count)
-    }
+    
 
     pub fn negamax(
         &self,
@@ -206,12 +162,16 @@ impl Bot {
         let mut alpha = alpha;
 
         let mut child_nodes = MoveGen::new_legal(&board);
-        let mut score = i32::MIN;
+        let mut best_score = i32::MIN;
         let mut best_move = None;
 
         let mut count = 0;
 
-        // captures moves
+        // TODO: better move ordering
+        // use movegen.filter... ?
+        // create a sorted vector?
+
+        // first, only iterate capture moves
         let targets = board.color_combined(!board.side_to_move());
         child_nodes.set_iterator_mask(*targets);
 
@@ -225,13 +185,13 @@ impl Bot {
             );
             count += c;
             // if a move leads to checkmate, prefer the shortest sequence
-            let child_score = if child_score >= INFTY - 1 - self.depth as i32 {
+            let child_score = if child_score >= INFINITY - 1 - self.depth as i32 {
                 -(child_score - 1)
             } else {
                 -child_score
             };
-            if child_score > score {
-                score = child_score;
+            if child_score > best_score {
+                best_score = child_score;
                 best_move = Some(m);
             }
 
@@ -253,13 +213,13 @@ impl Bot {
             );
             count += c;
             // if a move leads to checkmate, prefer the shortest sequence
-            let child_score = if child_score >= INFTY - 1 - self.depth as i32 {
+            let child_score = if child_score >= INFINITY - 1 - self.depth as i32 {
                 -(child_score - 1)
             } else {
                 -child_score
             };
-            if child_score > score {
-                score = child_score;
+            if child_score > best_score {
+                best_score = child_score;
                 best_move = Some(m);
             }
 
@@ -268,8 +228,55 @@ impl Bot {
                 break;
             }
         }
-        (score, best_move, count)
+        (best_score, best_move, count)
     }
+}
+
+fn negamax_no_moveorder(
+    &self,
+    board: Board,
+    depth: u8,
+    alpha: i32,
+    beta: i32,
+    player_obj: i32,
+) -> (i32, Option<ChessMove>, u32) {
+    if depth == 0 || board.status() != BoardStatus::Ongoing {
+        // instead of returning score, start quiscence search (same search function, but only look at capture moves and keep going until no captures are left)
+        return (player_obj * self.eval(&board), None, 1);
+    }
+    let mut alpha = alpha;
+
+    let mut child_nodes = MoveGen::new_legal(&board);
+    let mut score = i32::MIN;
+    let mut best_move = None;
+    let mut count = 0;
+
+    for m in &mut child_nodes {
+        let (child_score, child_move, c) = self.negamax_no_moveorder(
+            board.make_move_new(m),
+            depth - 1,
+            -beta,
+            -alpha,
+            -player_obj,
+        );
+        count += c;
+        // if a move leads to checkmate, prefer the shortest sequence
+        let child_score = if child_score >= INFINITY - 1 - self.depth as i32 {
+            -(child_score - 1)
+        } else {
+            -child_score
+        };
+        if child_score > score {
+            score = child_score;
+            best_move = Some(m);
+        }
+        alpha = cmp::max(alpha, child_score);
+        if alpha >= beta {
+            break;
+        }
+    }
+
+    (score, best_move, count)
 }
 
 fn force_king_to_corner(king_w_idx: i32, king_b_idx: i32) -> (i32, i32) {
@@ -288,16 +295,17 @@ fn force_king_to_corner(king_w_idx: i32, king_b_idx: i32) -> (i32, i32) {
 }
 
 fn evaluate(board: &Board) -> i32 {
-    let movegen = MoveGen::new_legal(board);
+    
     if board.status() == BoardStatus::Stalemate {
         return 0;
     } else if board.status() == BoardStatus::Checkmate {
         if board.side_to_move() == Color::Black {
-            return INFTY;
+            return INFINITY;
         } else {
-            return -INFTY;
+            return -INFINITY;
         }
     }
+
 
     // different evaluation based on board state
     // specifically endgame or heuristics when no pieces can be captures (bring own pieces closer to enemy king)
@@ -458,6 +466,8 @@ fn evaluate(board: &Board) -> i32 {
     let endgame_force_king = king_corner_score_w * endgame_factor_b * 2 / pawn
         - king_corner_score_b * endgame_factor_w * 2 / pawn;
     // possible moves
+    let movegen = MoveGen::new_legal(board);
+
     let num_moves_current_player = movegen.len();
     let mobility = 0;
 
