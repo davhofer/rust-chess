@@ -193,15 +193,15 @@ impl Player {
         Player {
             player_type: PlayerType::Human,
             color: color,
-            bot_ref: Bot::new(color, 0, false),
+            bot_ref: Bot::new(color, 0, false, 0),
         }
     }
 
-    fn new_bot(color: Color, depth: u8, debug: bool) -> Player {
+    fn new_bot(color: Color, depth: u8, debug: bool, search_type: u8) -> Player {
         Player {
             player_type: PlayerType::Bot,
-            color: color,
-            bot_ref: Bot::new(color, depth, debug),
+            color,
+            bot_ref: Bot::new(color, depth, debug, search_type),
         }
     }
 
@@ -226,12 +226,18 @@ fn bot_setup(color: Color) -> Player {
 
     println!("Debug? y/n ");
     let mut debug = false;
-    if stdin_get_input(&stdin) == "y" {
+    if stdin_get_input() == "y" {
         debug = true;
     }
 
+    println!("Search & evaluation: basic or advanced?");
+    let search_type = match stdin_get_input().as_str() {
+        "basic" => 0,
+        _ => 1,
+    };
+
     println!("-----------------");
-    Player::new_bot(color, depth, debug)
+    Player::new_bot(color, depth, debug, search_type)
 }
 
 // configure a player
@@ -332,12 +338,12 @@ pub fn start_game(
     } else {
         // setup for gui gamestate
         let (playable1, bot_ref1) = if player1.player_type == PlayerType::Human {
-            (true, Bot::new(Color::White, 0, false))
+            (true, Bot::new(Color::White, 0, false, 0))
         } else {
             (false, player1.bot_ref)
         };
         let (playable2, bot_ref2) = if player2.player_type == PlayerType::Human {
-            (true, Bot::new(Color::White, 0, false))
+            (true, Bot::new(Color::White, 0, false, 0))
         } else {
             (false, player2.bot_ref)
         };
