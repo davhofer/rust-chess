@@ -127,7 +127,8 @@ impl Bot {
         for i in 0..64 {
             for j in 0..6 {
                 for k in 0..2 {
-                    zobrist_pieces[i][j][k] = rng.gen::<u64>();
+                    println!("{}",k);
+                    // TODO: zobrist_pieces[i][j][k] = rng.gen::<u64>();
                 }
             }
         }
@@ -200,7 +201,7 @@ impl Bot {
     ) -> (i32, Option<ChessMove>, u32) {
         if depth == 0 || board.status() != BoardStatus::Ongoing {
             // instead of returning score, start quiscence search (same search function, but only look at capture moves and keep going until no captures are left)
-            return (player_obj * evaluate(&board), None, 1);
+            return (player_obj * evaluate(&board, false), None, 1);
         }
         let mut alpha = alpha;
 
@@ -418,7 +419,15 @@ fn force_king_to_corner(king_w_idx: i32, king_b_idx: i32) -> (i32, i32, i32) {
     (center_distance_b, center_distance_w, kings_distance)
 }
 
-fn evaluate(board: &Board) -> i32 {
+fn evaluate(board: &Board, debug: bool) -> i32 {
+    /*
+     * NOTES
+     * piece squares overvalued
+     * endgame pawns overvalued
+     *
+     */
+    if debug { println!("Status: {:?}",board.status());}
+
     if board.status() == BoardStatus::Stalemate {
         return 0;
     } else if board.status() == BoardStatus::Checkmate {
@@ -554,9 +563,11 @@ fn evaluate(board: &Board) -> i32 {
     mat_black += if rooks_b == 2 { rookpair } else { 0 };
     // endgame. TODO: find out how to do this better
     // pawns increase in value the longer the game goes (the less material the player has)
-    mat_white += (pawns_w * endgame_factor_w * pawn) / total_piece_val;
-    mat_black += (pawns_b * endgame_factor_b * pawn) / total_piece_val;
+    let pawn_endgame_w = (pawns_w * endgame_factor_w * pawn) / total_piece_val;
+    let pawn_endgame_b = (pawns_b * endgame_factor_b * pawn) / total_piece_val;
 
+    mat_white += pawn_endgame_w / 3; 
+    mat_black += pawn_endgame_b / 3;
     // /* tapered eval */
     // int mgScore = mg[side2move] - mg[OTHER(side2move)];
     // int egScore = eg[side2move] - eg[OTHER(side2move)];
@@ -568,9 +579,10 @@ fn evaluate(board: &Board) -> i32 {
     let eg_phase = 24 - mg_phase;
 
     let pst_adjusted = (mg_score * mg_phase + eg_score * eg_phase) / 24;
-
+    // pst score was overevaluated 
+    let pst_adjusted = pst_adjusted / 3;
     let mat_score = mat_white - mat_black + pst_adjusted;
-
+    
     // if a player has little material, it's beneficial for his opponent to push him to the corner/edge of the board to deliver checkmate
     // your_score += opponent_king_dist_to_corner * opponent_endgame_factor
     let king_w_idx = board.king_square(Color::White).to_int() as i32;
@@ -592,7 +604,7 @@ fn evaluate(board: &Board) -> i32 {
 
 pub fn eval_from_fen(fen: String) -> i32 {
     let b = Board::from_fen(fen).expect("Valid FEN");
-    let e = evaluate(&b);
+    let e = evaluate(&b, true);
     println!("evaluation: {}", e);
     e
 }
@@ -650,6 +662,7 @@ fn eval_simple(board: &Board) -> i32 {
 }
 
 fn get_board_hash(board: &Board, zn: &ZobristNumbers) -> u64 {
+    // TODO: error in this function when indexing into zn? outermost array has length 2!
     let mut hash = 0;
     unsafe {
         for idx in 0u8..64 {
@@ -659,7 +672,7 @@ fn get_board_hash(board: &Board, zn: &ZobristNumbers) -> u64 {
                 (Some(piece), Some(Color::Black)) => (idx as usize, piece_id(piece), 1),
                 _ => continue,
             };
-            hash ^= zn.pieces[i][j][k];
+            // TODO: hash ^= zn.pieces[i][j][k];
         }
 
         if let Some(square) = board.en_passant() {
